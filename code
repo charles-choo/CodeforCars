@@ -1,0 +1,69 @@
+
+
+#Some library to import
+import os as os
+import pandas as pd
+import numpy as np
+
+#Where is the file located at? Change the working directory
+os.chdir(r'C:\Users\Python\Desktop\SUTD Term 4\DBA\Project\data')
+
+
+#We are given 4 excel files. Will go through to get them all
+file = 'Customer_Data_SUTD_Version.xlsx'
+file_data = pd.ExcelFile(file)
+customer_data = file_data.parse('Sheet1') 
+
+
+file = 'Usage_Data_SUTD_Version.xlsx'
+file_data = pd.ExcelFile(file)
+usage_data = file_data.parse('Sheet1') 
+
+file = 'esso_data.xlsx'
+file_data = pd.ExcelFile(file)
+esso_data = file_data.parse('Sheet1') 
+
+
+file = 'shell_data.xls'
+file_data = pd.ExcelFile(file)
+shell_data = file_data.parse('Transaction_Report') 
+ #%%
+#Shell data starts with few empty rows. Hence change headers, start from there
+headers = shell_data.iloc[1]
+shell_data = pd.DataFrame(shell_data.values[2:],columns=headers)
+#Delete those empty columns, rename column headers to be similar to esso
+shell_data = shell_data.dropna(axis=1,how='all')
+shell_data = shell_data.rename(columns={'Licence Number':'vrn_drivername','Transaction Date':'delivery_date'
+,'Transaction Time':'delivery_time','Site Name':'delivery_point','Petrol Volume':'quantity'})
+
+'''
+#There are 8 entries with misaligned card/cars, for ESSO data
+a=0
+for row in esso_data:
+    if row[2] != row[3]:
+        a += 1
+'''
+
+#Will concat tbe data together. Change data type 
+gas_station_data = pd.concat([esso_data,shell_data],ignore_index=True, keys=["esso","shell"])
+gas_station_data["quantity"] = pd.to_numeric(gas_station_data["quantity"])
+
+#Aggregate refuel data based on vehicle number, finding quantity values like sum, mean, count
+fuel_use_of_cars = gas_station_data.groupby('vrn_drivername').agg({'quantity':[np.sum,np.mean,np.count_nonzero]})
+#%%
+#Aggregate mileage of cars based on vehicle numbers
+mileage_of_cars = usage_data.groupby('License Plate').agg({'km':[np.sum,np.mean,np.count_nonzero]})
+
+#Aggregate time rental of cars based on vehicle numbers.
+#But first, we find the usage hours (End - start), and need to convert to numeric from datetime data-type
+usage_data['Total usage'] = usage_data['Usage Until (Local time)'] - usage_data['Usage Start (Local time)']
+usage_data['Total usage(hours)'] = pd.to_numeric(usage_data['Total usage'].dt.days*24+usage_data['Total usage'].dt.seconds/60/60)
+time_usage_of_cars = usage_data.groupby('License Plate').agg({'Total usage(hours)':[np.sum,np.mean,np.count_nonzero]})
+
+
+
+
+
+
+
+
